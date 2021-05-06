@@ -116,6 +116,12 @@ struct Histogram {
   }
 
   static const Interpolation interpolation = Interpolation::Histogram;
+  // DM: if I understand what you are doing here, this is basically a way to
+  // "escape" std::variant's type erasure and recover information about the
+  // thing in the container. I think in general this is an anti-pattern because
+  // you have to keep the enum class in sync if you want to add another
+  // interpolation type for instance. Can you just add an extra member function
+  // to your struct to do whatever you need?
 };
 
 /**

@@ -72,6 +72,11 @@ class AngleDistribution {
    * @param rng Random number generator function.
    */
   double sample_angle(double E_in, std::function<double()> rng) const;
+  // DM: avoid std::function if you can, replace this with
+  //   template<typename F>
+  //   double sample_angle(double E_in, F rng) const;
+  // especially if you are passing a lambda into the function. Chances are high
+  // that calls to rng will get inlined away.
 
   /**
    * @brief Evaluates the PDF for having a scattering cosine of mu at incoming
@@ -98,12 +103,14 @@ class AngleDistribution {
    * @param i Index in the energy grid.
    */
   double energy(size_t i) const;
+  // DM: necessary?
 
   /**
    * @brief Gets a pointer to the angular distribution for the ith energy point.
    * @param i Index in the energy grid.
    */
   std::shared_ptr<AngleLaw> law(size_t i) const;
+  // DM: AngleLaw const &?
 
  private:
   std::vector<double> energy_grid_;

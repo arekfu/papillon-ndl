@@ -77,6 +77,7 @@ CrossSection::CrossSection(const std::vector<double>& xs,
       values_(xs.size(), 0.),
       index_(static_cast<uint32_t>(index)) {
   // Fill cross section values
+  // DM: does std::copy work here?
   for (size_t e = 0; e < xs.size(); e++) {
     values_[e] = static_cast<float>(xs[e]);
   }

@@ -92,6 +92,22 @@ class CENeutron {
    * @brief Returns the energy grid for the nuclide.
    */
   std::shared_ptr<EnergyGrid> energy_grid() const;
+  // DM: unless you have specific reasons to return the pointer and expose this
+  // internal implementation detail, I would probably return an EnergyGrid
+  // const & here. It does not prevent you from sharing the internal pointers
+  // between instances in copy constructors, but it leaves less room for
+  // mischief. Note that the method is const, which I, as a user, read as a
+  // promise that I cannot modify the object using this method. However, if I
+  // do
+  //   auto egrid = neutron.energy_grid();
+  //   egrid.modify();  // totally existing method
+  // then I have modified neutron, too. Returning an EnergyGrid const &
+  // prevents users from doing that. This is what you do with DelayedGroups and
+  // Reactions below, by the way.
+  //
+  // Also, I would perhaps put the definitions of this and the following
+  // methods in the header file, to give the compiler better chances at
+  // inlining them.
 
   /**
    * @brief Returns a pointer to the total CrossSection for the nuclide.
@@ -139,6 +155,16 @@ class CENeutron {
    * @brief Retrieves the index in the energy grid for an energy.
    * @param E Energy to find in the energy grid.
    */
+  // DM: I would not clutter the API with methods such as this one and the
+  // following ones. There is a general principle called Information Expert
+  // that states that you should assign responsibilities to the class that has
+  // the information required to fulfil it. This is also related to the
+  // principle of Interface Segregation (the "I" in SOLID) that argues that you
+  // need to keep interfaces as small and separated as possible.
+  //
+  // In this case, CENeutron already has an energy_grid() method. You don't
+  // need the extra indirection and the compiler should inline and optimise
+  // away the function calls anyway.
   size_t energy_grid_index(double E) const {
     return energy_grid_->get_lower_index(E);
   }
@@ -198,6 +224,12 @@ class CENeutron {
    * search.
    * @param E Energy.
    */
+  // DM: This method is somewhat of a special case. The methods above
+  // (elastic_xs, etc.) may disappear, but this one contains some logic. I am
+  // not sure what to do about this. Either live with the wrinkle, or perhaps
+  // introduce a helper FissionCrossSection class with an evaluate() method
+  // (the implementation of which would basically be the content of
+  // fission_xs() below) and return that from here.
   double fission_xs(double E) const {
     if (!this->fissile_) return 0.;
 
@@ -268,6 +300,7 @@ class CENeutron {
    * @brief Returns the total average number of fission neutron at energy E.
    * @param E Energy in MeV.
    */
+  // DM: same remarks as in the case of fission_xs above
   double nu_total(double E) const {
     if (nu_total_)
       return (*nu_total_)(E);
@@ -319,6 +352,13 @@ class CENeutron {
    * @brief Returns the ith delayed group data.
    * @param i Index of the delayed group.
    */
+  // DM: returning a DelayedGroup const & is fine. The integer index makes me a
+  // bit uneasy. Either you expose the internal implementation detail that you
+  // are using std::vector and return that, or maybe you can go the extra mile
+  // and replace std::vector<DelayedGroup> with your class DelayedGroups, which
+  // you can implement by either privately inheriting from std::vector or by
+  // aggregating an std::vector. That hides the implementation detail at the
+  // cost of some more boilerplate.
   const DelayedGroup& delayed_group(size_t i) const {
     return delayed_groups_[i];
   }
@@ -336,6 +376,8 @@ class CENeutron {
   /**
    * @brief Returns a list of all MT reactions present for the nuclide.
    */
+  // DM: same remark here about implementation details leaking out of the API,
+  // but maybe that's fine.
   const std::vector<uint32_t>& mt_list() const { return mt_list_; }
 
   /**
@@ -352,6 +394,8 @@ class CENeutron {
    */
   const Reaction& reaction(uint32_t mt) const {
     if (mt > 891 || reaction_indices_[mt] < 0) {
+      // DM: maybe replace the bounds check with a call to
+      // reaction_indices_.size(), or by accessing it with at().
       std::string mssg = "CENeutron::reaction: MT = " + std::to_string(mt) +
                          " is not provided in ZAID = " + std::to_string(zaid_) +
                          ".";
@@ -367,6 +411,7 @@ class CENeutron {
    * @param mt MT value of the reaction.
    * @param E Energy to evaluate cross section at.
    */
+  // DM: remove these two methods? see above
   double reaction_xs(uint32_t mt, double E) const {
     if (mt > 891) return 0.;
 
@@ -402,6 +447,19 @@ class CENeutron {
   std::shared_ptr<CrossSection> disappearance_xs_;
   std::shared_ptr<CrossSection> elastic_xs_;
   std::shared_ptr<CrossSection> photon_production_xs_;
+  // DM: this is a somewhat disruptive remark, and I know that we are not doing
+  // that in PATMOS either, but I have always thought that it should be more
+  // efficient to store cross sections as an array of structs, instead of a
+  // struct of arrays like here. The reason is that when you have an AoS you
+  // will load all the cross sections into the cache with just one load.
+  // However, that will degrade the performance of cross section lookup while
+  // iterating over energy (think Doppler broadening). So the best solution
+  // overall is probably some weird AoSoA, but I'm too old for that.
+  //
+  // Anyway I think this comment goes to show that there may be a slightly
+  // smaller class trying to get out here. You could bunch the energy grid and
+  // the four cross sections into a smaller class and use that to play around
+  // with different implementations of cross section lookups.
 
   std::shared_ptr<AngleDistribution> elastic_angle_;
 
@@ -413,6 +471,8 @@ class CENeutron {
   std::vector<uint32_t> mt_list_;
   std::array<int32_t, 892> reaction_indices_;
   std::vector<Reaction> reactions_;
+  // DM: have you tried replacing the double indexing with an
+  // std::unordered_map<uint32_t,Reaction>?
 
   // Private helper methods
   void read_fission_data(const ACE& ace);

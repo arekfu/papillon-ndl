@@ -51,6 +51,8 @@ namespace pndl {
  *        retion.
  */
 class Region1D : public Tabulated1D {
+  // DM: haha interesting, we ended up with a very similar class hierarchy in
+  // PATMOS
  public:
   /**
    * @param i_x Vector of all x points.
@@ -147,6 +149,7 @@ class Region1D : public Tabulated1D {
     }
 
     if (inverted) integral *= -1.;
+    // DM: integral = -integral?
 
     return integral;
   }

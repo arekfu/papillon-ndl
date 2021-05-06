@@ -77,6 +77,9 @@ class CrossSection {
    * @param index Starting index in the energy grid.
    */
   CrossSection(const std::vector<float>& xs, std::shared_ptr<EnergyGrid> E_grid,
+               // DM: take the vector by value and std::move it into your
+               // object. This allows users of this class to avoid unnecessary
+               // copies by moving their std::vector into CrossSection.
                size_t index);
   ~CrossSection() = default;
 
@@ -150,6 +153,7 @@ class CrossSection {
    * @param E Energy to evaluate the cross section at.
    */
   double evaluate(double E) const { return this->operator()(E); }
+  // DM: the evaluate() methods seem a bit redundant
 
   /**
    * @brief Evaluates the cross section at a given energy, with the
@@ -192,11 +196,17 @@ class CrossSection {
    *        as a vector of floats.
    */
   std::vector<float> energy() const;
+  // DM: maybe rename this method to make it clear that it returns a copy and
+  // that it is potentially expensive. Also, if you have this method return
+  // an std::vector<float> const &, which is consistent with the rest of the
+  // API, the user can always copy the vector, so I don't think that a method
+  // returning a copy is actually necessary.
 
  private:
   std::shared_ptr<EnergyGrid> energy_grid_;
   std::vector<float> values_;
   uint32_t index_;
+  // DM: is this an index into an std::vector? If so, it should be an std::size_t
 };
 
 }  // namespace pndl
